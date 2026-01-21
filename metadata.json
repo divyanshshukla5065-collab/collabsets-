@@ -1,0 +1,7 @@
+{
+  "name": "COLLABSET",
+  "description": "Production-ready premium platform connecting Brands and Influencers in India. Featuring OTP verification, profile completion tracking, and real-time collaboration workflows.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
