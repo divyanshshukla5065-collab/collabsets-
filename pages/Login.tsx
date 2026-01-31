@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+// Fix: Verified named exports from react-router-dom
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
@@ -9,17 +10,26 @@ export const Login: React.FC = () => {
   const { role } = useParams<{ role: string }>();
   const { login } = useAuth();
   const navigate = useNavigate();
-  const [name, setName] = useState('');
+  // Using email state instead of name as login requires email/password
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('password');
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Handle form submission with both email and password
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name) return;
+    if (!email || !password) return;
     setIsLoading(true);
-    setTimeout(() => {
-      // Fix: login only accepts one argument (email) as defined in AuthContext
-      login(name);
-    }, 1000);
+    
+    try {
+      // login expects (email, password) per AuthContext definition
+      await login(email, password);
+      navigate('/dashboard');
+    } catch (error) {
+      console.error("Login failed:", error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -46,14 +56,14 @@ export const Login: React.FC = () => {
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <label className="block text-sm font-semibold dark:text-slate-200 mb-2">Full Name</label>
+            <label className="block text-sm font-semibold dark:text-slate-200 mb-2">Email Address</label>
             <div className="relative">
               <Mail className="absolute left-3 top-3 w-5 h-5 text-slate-400" />
               <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="John Doe"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="john@example.com"
                 className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-800 border-none rounded-xl focus:ring-2 focus:ring-purple-500 outline-none transition-all dark:text-white"
                 required
               />
@@ -66,9 +76,11 @@ export const Login: React.FC = () => {
               <Lock className="absolute left-3 top-3 w-5 h-5 text-slate-400" />
               <input
                 type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
                 className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-800 border-none rounded-xl focus:ring-2 focus:ring-purple-500 outline-none transition-all dark:text-white"
-                defaultValue="password"
+                required
               />
             </div>
           </div>
@@ -85,7 +97,7 @@ export const Login: React.FC = () => {
         </form>
 
         <div className="mt-8 text-center text-sm text-slate-500">
-          Don't have an account? <span className="text-purple-600 font-bold cursor-pointer hover:underline">Sign up</span>
+          Don't have an account? <span className="text-purple-600 font-bold cursor-pointer hover:underline" onClick={() => navigate('/signup')}>Sign up</span>
         </div>
       </motion.div>
     </div>

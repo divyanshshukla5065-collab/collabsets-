@@ -1,192 +1,206 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
-import { Mail, Lock, User as UserIcon, ShieldCheck, ArrowRight, RefreshCw, AlertCircle } from 'lucide-react';
+import { Mail, Lock, User as UserIcon, ArrowRight, RefreshCw, AlertCircle, Eye, EyeOff, Inbox } from 'lucide-react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 
 export const Auth: React.FC = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { signup, user, verifyOtp, login } = useAuth();
+  const { signup, login, loginWithGoogle, sendPasswordReset } = useAuth();
   const isLogin = searchParams.get('mode') === 'login';
   
-  const [formData, setFormData] = useState({ name: '', email: '', password: '', role: (searchParams.get('role') as any) || 'Influencer' });
-  const [otp, setOtp] = useState('');
-  const [timer, setTimer] = useState(60);
+  const [formData, setFormData] = useState({ 
+    name: '', 
+    email: '', 
+    password: '', 
+    confirmPassword: '',
+    role: (searchParams.get('role') as any) || 'Influencer' 
+  });
+  
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
+  const [isEmailSent, setIsEmailSent] = useState(false);
+  
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
-  useEffect(() => {
-    let interval: any;
-    if (user?.onboardingStatus === 'OTP_PENDING' && timer > 0) {
-      interval = setInterval(() => setTimer(t => t - 1), 1000);
-    }
-    return () => clearInterval(interval);
-  }, [user, timer]);
+  const formatError = (err: any): string => {
+    if (!err) return 'Something went wrong. Please try again.';
+    const message = err.message || String(err);
+    const code = err.code || '';
+    if (code === 'auth/email-already-in-use') return 'This email is already registered. Please login.';
+    if (code === 'auth/invalid-credential') return 'Incorrect email or password.';
+    if (code === 'auth/weak-password') return 'Password is too short. Use at least 6 characters.';
+    return message.replace('Firebase: ', '').replace('Error ', '').trim();
+  };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.email) {
+      setError("Please enter your email.");
+      return;
+    }
     setError('');
     setIsLoading(true);
     try {
-      if (isLogin) {
-        await login(formData.email);
-      } else {
-        await signup(formData.name, formData.email, formData.role);
-      }
+      await sendPasswordReset(formData.email);
+      setIsEmailSent(true);
     } catch (err: any) {
-      setError(err.message);
+      setError(formatError(err));
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleOtpVerify = (e: React.FormEvent) => {
-    e.preventDefault();
-    const success = verifyOtp(otp);
-    if (!success) setError('Invalid OTP. Please try 123456');
-    else navigate('/complete-profile');
+  const handleGoogleLogin = async () => {
+    if (isGoogleLoading) return;
+    setError('');
+    setIsGoogleLoading(true);
+    try {
+      await loginWithGoogle(formData.role);
+    } catch (err: any) {
+      setError(formatError(err));
+      setIsGoogleLoading(false);
+    }
   };
 
-  if (user?.onboardingStatus === 'OTP_PENDING' && !isLogin) {
-    return (
-      <div className="min-h-[85vh] flex items-center justify-center px-4 py-8">
-        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="max-w-md w-full bg-white dark:bg-slate-900 p-8 md:p-10 rounded-[40px] shadow-2xl border border-slate-100 dark:border-slate-800 text-center">
-          <div className="w-16 h-16 md:w-20 md:h-20 bg-purple-100 dark:bg-purple-900/30 rounded-3xl flex items-center justify-center mx-auto mb-6 md:mb-8">
-            <ShieldCheck className="w-8 h-8 md:w-10 md:h-10 text-purple-600" />
-          </div>
-          <h2 className="text-2xl md:text-3xl font-black mb-2 dark:text-white leading-tight">Verify Your Email</h2>
-          <p className="text-slate-500 dark:text-slate-400 mb-8 md:mb-10 text-sm font-medium">We've sent a 6-digit code to <br/><span className="font-bold text-slate-800 dark:text-slate-200">{user.email}</span></p>
-          
-          <form onSubmit={handleOtpVerify} className="space-y-6">
-            <input
-              type="text"
-              maxLength={6}
-              placeholder="0 0 0 0 0 0"
-              value={otp}
-              onChange={(e) => setOtp(e.target.value)}
-              className="w-full text-center text-3xl md:text-4xl tracking-[0.4em] md:tracking-[0.5em] font-black py-4 bg-slate-50 dark:bg-slate-800 border-none rounded-2xl focus:ring-2 focus:ring-purple-600 outline-none dark:text-white"
-            />
-            {error && <p className="text-red-500 text-xs font-semibold">{error}</p>}
-            <button type="submit" className="w-full py-5 bg-gradient-premium text-white font-black text-lg md:text-xl rounded-2xl shadow-lg hover:scale-[1.02] active:scale-95 transition-all">
-              Verify OTP
-            </button>
-          </form>
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isLoading) return;
+    setError('');
+    
+    if (!isLogin && formData.password !== formData.confirmPassword) {
+      setError('Passwords do not match.');
+      return;
+    }
 
-          <div className="mt-8 flex flex-col items-center gap-4">
-            <p className="text-slate-500 text-xs md:text-sm font-medium">
-              Didn't receive code? {timer > 0 ? `Resend in ${timer}s` : <button onClick={() => setTimer(60)} className="text-purple-600 font-bold hover:underline">Resend Now</button>}
-            </p>
-            <button onClick={() => navigate('/')} className="text-slate-400 hover:text-slate-600 text-[10px] md:text-xs font-bold flex items-center uppercase tracking-widest">
-              <RefreshCw className="w-4 h-4 mr-2" /> Change Email
-            </button>
-          </div>
+    setIsLoading(true);
+    try {
+      if (isLogin) {
+        await login(formData.email, formData.password);
+        navigate('/dashboard');
+      } else {
+        await signup(formData.name, formData.email, formData.password, formData.role);
+        navigate('/complete-profile');
+      }
+    } catch (err: any) {
+      setError(formatError(err));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (isEmailSent) {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-6 py-24 bg-slate-50 dark:bg-[#030712]">
+        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="max-w-md w-full bg-white dark:bg-slate-900 p-12 md:p-16 rounded-[48px] shadow-3xl border border-slate-100 dark:border-slate-800 text-center">
+          <div className="w-20 h-20 bg-purple-100 dark:bg-purple-900/30 rounded-3xl flex items-center justify-center mx-auto mb-8"><Inbox className="w-10 h-10 text-purple-600" /></div>
+          <h2 className="text-3xl font-black mb-4 dark:text-white uppercase tracking-tighter">Check Your Email</h2>
+          <p className="text-slate-500 dark:text-slate-400 font-bold mb-10 leading-relaxed text-base">We've sent a recovery link to:<br/><span className="text-slate-900 dark:text-slate-200 font-black">{formData.email}</span></p>
+          <button onClick={() => { setIsEmailSent(false); setIsForgotPassword(false); navigate('/signup?mode=login'); }} className="w-full py-5 bg-gradient-premium text-white font-black rounded-2xl shadow-xl active-scale uppercase tracking-widest text-xs">Back to Login</button>
         </motion.div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-[85vh] flex items-center justify-center px-4 py-8 md:py-16">
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="max-w-xl w-full flex flex-col bg-white dark:bg-slate-900 rounded-[40px] shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden">
-        <div className="p-8 md:p-12">
-          <h2 className="text-3xl md:text-4xl font-black brand-font mb-2 dark:text-white leading-tight">
-            {isLogin ? 'Welcome Back' : 'Join Collabset'}
+    <div className="min-h-screen flex items-center justify-center px-6 py-24 bg-slate-50 dark:bg-[#030712] relative overflow-hidden">
+      <div className="absolute inset-0 pointer-events-none opacity-[0.03]" style={{ backgroundImage: 'radial-gradient(circle, #7c3aed 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
+      
+      <motion.div initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} className="max-w-xl w-full flex flex-col bg-white dark:bg-slate-900 rounded-[56px] shadow-3xl border border-slate-100 dark:border-slate-800 overflow-hidden relative z-10">
+        <div className="p-10 md:p-16">
+          <h2 className="text-3xl md:text-4xl lg:text-5xl font-black brand-font mb-4 text-slate-950 dark:text-white uppercase tracking-tighter py-2 leading-none">
+            {isForgotPassword ? 'Reset Password' : (isLogin ? 'Log In' : 'Sign Up')}
           </h2>
-          <p className="text-slate-500 mb-8 font-medium text-sm md:text-base">
-            {isLogin ? 'Log in to manage your collabs' : 'Start your journey with India\'s elite marketplace'}
+          <p className="text-slate-500 font-bold mb-12 text-base md:text-lg">
+            {isForgotPassword ? 'Enter your email to get a reset link.' : 'The premium network for high-tier creators and brands.'}
           </p>
 
-          <AnimatePresence>
+          <AnimatePresence mode="wait">
             {error && (
-              <motion.div 
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 rounded-2xl flex items-center gap-3 text-red-600 dark:text-red-400 text-sm font-bold"
-              >
+              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="mb-8 p-5 bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 rounded-2xl flex items-center gap-4 text-red-600 dark:text-red-400 text-xs font-bold shadow-sm overflow-hidden">
                 <AlertCircle className="w-5 h-5 flex-shrink-0" />
-                <span>{error}</span>
+                <span className="flex-1">{error}</span>
               </motion.div>
             )}
           </AnimatePresence>
 
-          {!isLogin && (
-            <div className="flex bg-slate-100 dark:bg-slate-800 p-1.5 rounded-2xl mb-8">
-              <button 
-                onClick={() => setFormData({...formData, role: 'Influencer'})}
-                className={`flex-1 py-3 rounded-xl text-xs md:text-sm font-black transition-all ${formData.role === 'Influencer' ? 'bg-white dark:bg-slate-700 shadow-sm text-purple-600' : 'text-slate-500'}`}
-              >Influencer</button>
-              <button 
-                onClick={() => setFormData({...formData, role: 'Brand'})}
-                className={`flex-1 py-3 rounded-xl text-xs md:text-sm font-black transition-all ${formData.role === 'Brand' ? 'bg-white dark:bg-slate-700 shadow-sm text-amber-600' : 'text-slate-500'}`}
-              >Brand</button>
-            </div>
+          {isForgotPassword ? (
+            <form onSubmit={handleResetPassword} className="space-y-6">
+               <div className="relative group">
+                <Mail className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-purple-600 transition-colors" />
+                <input type="email" placeholder="Email Address" required value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} className="w-full pl-14 pr-6 py-5 bg-slate-50 dark:bg-slate-800 border-none rounded-2xl focus:ring-4 focus:ring-purple-600/10 outline-none text-slate-950 dark:text-white font-bold text-sm shadow-inner" />
+              </div>
+              <button type="submit" disabled={isLoading} className="w-full py-5 bg-gradient-premium text-white font-black text-xs uppercase tracking-[0.2em] rounded-2xl shadow-xl active-scale">
+                {isLoading ? 'Sending...' : 'Send Reset Link'}
+              </button>
+              <button type="button" onClick={() => setIsForgotPassword(false)} className="w-full py-3 text-slate-400 font-black text-[9px] uppercase tracking-[0.3em] hover:text-purple-600 transition-colors">Go Back</button>
+            </form>
+          ) : (
+            <>
+              {!isLogin && (
+                <div className="flex bg-slate-100 dark:bg-slate-800 p-1.5 rounded-2xl mb-10 border border-slate-200 dark:border-slate-700">
+                  <button type="button" onClick={() => setFormData({...formData, role: 'Influencer'})} className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-[0.15em] transition-all ${formData.role === 'Influencer' ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-700'}`}>I'm a Creator</button>
+                  <button type="button" onClick={() => setFormData({...formData, role: 'Brand'})} className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-[0.15em] transition-all ${formData.role === 'Brand' ? 'bg-slate-950 text-white shadow-lg' : 'text-slate-500 hover:text-slate-700'}`}>I'm a Brand</button>
+                </div>
+              )}
+
+              <div className="space-y-6">
+                <button type="button" onClick={handleGoogleLogin} disabled={isGoogleLoading || isLoading} className="w-full py-5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl font-black text-[10px] text-slate-950 dark:text-white uppercase tracking-[0.1em] flex items-center justify-center gap-3 shadow-sm hover:shadow-md transition-all active-scale">
+                  <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-5 h-5" alt="G" />
+                  {isGoogleLoading ? 'Connecting...' : 'Sign in with Google'}
+                </button>
+
+                <div className="relative py-6">
+                  <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-100 dark:border-slate-800"></div></div>
+                  <div className="relative flex justify-center text-[9px] uppercase font-black tracking-[0.3em] text-slate-400"><span className="bg-white dark:bg-slate-900 px-4">Or use email</span></div>
+                </div>
+
+                <form onSubmit={handleSubmit} className="space-y-5">
+                  {!isLogin && (
+                    <div className="relative group">
+                      <UserIcon className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-purple-600 transition-colors" />
+                      <input type="text" placeholder="Full Name" required value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} className="w-full pl-14 pr-6 py-5 bg-slate-50 dark:bg-slate-800 border-none rounded-2xl focus:ring-4 focus:ring-purple-600/10 outline-none text-slate-950 dark:text-white font-bold text-sm shadow-inner" />
+                    </div>
+                  )}
+                  <div className="relative group">
+                    <Mail className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-purple-600 transition-colors" />
+                    <input type="email" placeholder="Email Address" required value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} className="w-full pl-14 pr-6 py-5 bg-slate-50 dark:bg-slate-800 border-none rounded-2xl focus:ring-4 focus:ring-purple-600/10 outline-none text-slate-950 dark:text-white font-bold text-sm shadow-inner" />
+                  </div>
+                  <div className="relative group">
+                    <Lock className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-purple-600 transition-colors" />
+                    <input type={showPassword ? "text" : "password"} placeholder="Password" required value={formData.password} onChange={(e) => setFormData({...formData, password: e.target.value})} className="w-full pl-14 pr-12 py-5 bg-slate-50 dark:bg-slate-800 border-none rounded-2xl focus:ring-4 focus:ring-purple-600/10 outline-none text-slate-950 dark:text-white font-bold text-sm shadow-inner" />
+                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-400 hover:text-purple-600 transition-colors">{showPassword ? <EyeOff size={20} /> : <Eye size={20} />}</button>
+                  </div>
+
+                  {!isLogin && (
+                    <div className="relative group">
+                      <Lock className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-purple-600 transition-colors" />
+                      <input type={showConfirmPassword ? "text" : "password"} placeholder="Confirm Password" required value={formData.confirmPassword} onChange={(e) => setFormData({...formData, confirmPassword: e.target.value})} className="w-full pl-14 pr-12 py-5 bg-slate-50 dark:bg-slate-800 border-none rounded-2xl focus:ring-4 focus:ring-purple-600/10 outline-none text-slate-950 dark:text-white font-bold text-sm shadow-inner" />
+                      <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-400 hover:text-purple-600 transition-colors">{showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}</button>
+                    </div>
+                  )}
+
+                  {isLogin && <button type="button" onClick={() => setIsForgotPassword(true)} className="text-[9px] font-black text-slate-400 hover:text-purple-600 uppercase tracking-[0.2em] block ml-auto transition-colors">Forgot Password?</button>}
+
+                  <button type="submit" disabled={isLoading || isGoogleLoading} className="w-full py-6 bg-gradient-premium text-white font-black text-xs uppercase tracking-[0.3em] rounded-2xl shadow-xl active-scale mt-8 flex items-center justify-center gap-3 hover:shadow-purple-500/20 transition-all">
+                    {isLoading ? <RefreshCw className="animate-spin" size={18} /> : (isLogin ? 'Log In' : 'Sign Up')}
+                    {!isLoading && <ArrowRight size={18} />}
+                  </button>
+                </form>
+              </div>
+
+              <div className="mt-10 text-center text-slate-500 font-bold text-sm">
+                {isLogin ? "Need an account?" : "Already have an account?"}{" "}
+                <Link to={isLogin ? "/signup" : "/signup?mode=login"} className="text-purple-600 font-black hover:underline ml-1">
+                  {isLogin ? 'Sign Up' : 'Log In'}
+                </Link>
+              </div>
+            </>
           )}
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {!isLogin && (
-              <div className="relative">
-                <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Full Name"
-                  required
-                  value={formData.name}
-                  onChange={(e) => setFormData({...formData, name: e.target.value})}
-                  className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-800 border-none rounded-2xl focus:ring-2 focus:ring-purple-600 outline-none dark:text-white font-medium text-sm"
-                />
-              </div>
-            )}
-            <div className="relative">
-              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-              <input
-                type="email"
-                placeholder="Email Address"
-                required
-                value={formData.email}
-                onChange={(e) => setFormData({...formData, email: e.target.value})}
-                className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-800 border-none rounded-2xl focus:ring-2 focus:ring-purple-600 outline-none dark:text-white font-medium text-sm"
-              />
-            </div>
-            <div className="relative">
-              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-              <input
-                type="password"
-                placeholder="Password"
-                required
-                value={formData.password}
-                onChange={(e) => setFormData({...formData, password: e.target.value})}
-                className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-800 border-none rounded-2xl focus:ring-2 focus:ring-purple-600 outline-none dark:text-white font-medium text-sm"
-              />
-            </div>
-            
-            {!isLogin && (
-              <div className="flex items-start gap-3 py-2">
-                <input type="checkbox" required className="w-5 h-5 mt-0.5 rounded accent-purple-600 flex-shrink-0" id="terms" />
-                <label htmlFor="terms" className="text-xs text-slate-500 font-medium leading-relaxed">
-                  I agree to the <Link to="/terms" className="text-purple-600 font-bold hover:underline">Terms & Conditions</Link>
-                </label>
-              </div>
-            )}
-
-            <button 
-              type="submit" 
-              disabled={isLoading}
-              className={`w-full py-5 bg-gradient-premium text-white font-black text-lg md:text-xl rounded-2xl shadow-lg transition-all flex items-center justify-center group mt-4 ${isLoading ? 'opacity-70 cursor-wait' : 'hover:scale-[1.01] active:scale-95'}`}
-            >
-              {isLoading ? 'Processing...' : (isLogin ? 'Sign In' : 'Sign Up')}
-              {!isLoading && <ArrowRight className="ml-2 w-6 h-6 group-hover:translate-x-1 transition-transform" />}
-            </button>
-          </form>
-
-          <div className="mt-8 text-center text-slate-500 font-medium text-sm">
-            {isLogin ? "New to Collabset?" : "Already a member?"}{" "}
-            <Link to={isLogin ? "/signup" : "/signup?mode=login"} className="text-purple-600 font-black hover:underline">
-              {isLogin ? 'Create Account' : 'Sign In'}
-            </Link>
-          </div>
         </div>
       </motion.div>
     </div>

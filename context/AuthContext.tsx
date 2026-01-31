@@ -1,181 +1,217 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { User, UserRole, CollabRequest, ChatMessage } from '../types';
+import { User, UserRole, Deal, ProjectStatus, PaymentStatus } from '../types';
 import { useNavigate } from 'react-router-dom';
-import { supabase, updateProfile, getOrCreateConversation, sendMessageToSupabase } from '../lib/supabase';
+import { auth, db } from '../lib/firebase';
+import { 
+  onAuthStateChanged, 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword, 
+  signOut, 
+  sendEmailVerification,
+  sendPasswordResetEmail,
+  User as FirebaseUser,
+  reload,
+  GoogleAuthProvider,
+  signInWithPopup,
+  setPersistence,
+  browserLocalPersistence
+} from 'firebase/auth';
+import { ref, get, set, update, onValue, remove, push } from 'firebase/database';
 
 interface AuthContextType {
-  user: User | null;
-  allUsers: any[];
-  requests: CollabRequest[];
-  messages: ChatMessage[];
-  login: (email: string) => Promise<void>;
-  signup: (name: string, email: string, role: UserRole) => Promise<void>;
-  verifyOtp: (otp: string) => Promise<boolean>;
-  completeProfile: (data: any) => Promise<void>;
+  user: any | null; 
+  allUsers: User[];
+  requests: any[];
+  blogs: any[];
+  deals: Deal[];
+  loading: boolean;
+  isAriaOpen: boolean;
+  setIsAriaOpen: (open: boolean) => void;
+  login: (email: string, password: string) => Promise<void>;
+  adminLogin: (email: string, password: string) => Promise<void>;
+  signup: (name: string, email: string, password: string, role: UserRole) => Promise<void>;
+  loginWithGoogle: (role: UserRole) => Promise<void>;
   logout: () => void;
-  sendRequest: (toId: string) => void;
-  updateRequestStatus: (requestId: string, status: 'Accepted' | 'Rejected') => void;
-  sendMessage: (otherUserId: string, text: string) => Promise<void>;
-  adminVerifyUser: (userId: string) => void;
-  adminDeleteUser: (userId: string) => void;
+  sendPasswordReset: (email: string) => Promise<void>;
+  resendVerificationEmail: () => Promise<void>;
+  completeProfile: (data: any) => Promise<void>;
+  toggleBarterStatus: (enabled: boolean) => Promise<void>;
+  checkVerification: () => Promise<boolean>;
+  adminVerifyUser: (uid: string) => Promise<void>;
+  adminBlockUser: (uid: string, blocked: boolean) => Promise<void>;
+  adminDeleteUser: (uid: string) => Promise<void>;
+  saveBlogPost: (blog: any) => Promise<void>;
+  deleteBlogPost: (blogId: string) => Promise<void>;
+  sendCollabRequest: (toId: string, initialMessage?: string) => Promise<void>;
+  acceptCollabRequest: (requestId: string) => Promise<void>;
+  rejectCollabRequest: (requestId: string) => Promise<void>;
+  createDirectChat: (toId: string) => Promise<void>;
+  updateDealStatus: (dealId: string, status: ProjectStatus, workLink?: string) => Promise<void>;
+  updatePaymentStatus: (dealId: string, status: PaymentStatus) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [allUsers, setAllUsers] = useState<any[]>([]);
-  const [requests, setRequests] = useState<CollabRequest[]>([]);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [user, setUser] = useState<any | null>(null);
+  const [allUsers, setAllUsers] = useState<User[]>([]);
+  const [requests, setRequests] = useState<any[]>([]);
+  const [blogs, setBlogs] = useState<any[]>([]);
+  const [deals, setDeals] = useState<Deal[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isAriaOpen, setIsAriaOpen] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', session.user.id)
-          .single();
+    setPersistence(auth, browserLocalPersistence).catch(console.error);
 
-        if (profile) {
-          setUser({
-            id: session.user.id,
-            name: profile.full_name,
-            email: session.user.email!,
-            avatar: profile.avatar_url,
-            role: (session.user.user_metadata.role as UserRole) || 'Influencer',
-            isVerified: true,
-            profileComplete: 100,
-            onboardingStatus: 'COMPLETED',
-            createdAt: new Date(profile.created_at).getTime()
-          });
+    onValue(ref(db, 'users'), (snapshot) => {
+      const data = snapshot.val();
+      setAllUsers(data ? Object.entries(data).map(([id, val]: [string, any]) => ({ id, ...val })) : []);
+    });
+
+    onValue(ref(db, 'requests'), (snapshot) => {
+      const data = snapshot.val();
+      setRequests(data ? Object.entries(data).map(([id, val]: [string, any]) => ({ id, ...val })) : []);
+    });
+
+    onValue(ref(db, 'blogs'), (snapshot) => {
+      const data = snapshot.val();
+      setBlogs(data ? Object.entries(data).map(([id, val]: [string, any]) => ({ id, ...val })).sort((a, b) => b.timestamp - a.timestamp) : []);
+    });
+
+    onValue(ref(db, 'deals'), (snapshot) => {
+      const data = snapshot.val();
+      setDeals(data ? Object.entries(data).map(([id, val]: [string, any]) => ({ id, ...val })) : []);
+    });
+
+    const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        await reload(firebaseUser);
+        const userRef = ref(db, `users/${firebaseUser.uid}`);
+        const snapshot = await get(userRef);
+        if (snapshot.exists()) {
+          const dbData = snapshot.val();
+          setUser({ id: firebaseUser.uid, email: firebaseUser.email!, ...dbData });
         }
       } else {
         setUser(null);
       }
+      setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => unsubscribeAuth();
   }, []);
 
-  const signup = async (name: string, email: string, role: UserRole) => {
-    try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password: 'dummy-password-for-demo',
-        options: { data: { name, role } }
-      });
-      if (error) throw error;
-      setUser({
-        id: data.user?.id || 'pending',
-        name,
-        email,
-        role,
-        isVerified: false,
-        profileComplete: 20,
-        onboardingStatus: 'OTP_PENDING',
-        createdAt: Date.now()
-      });
-    } catch (err: any) {
-      throw new Error(err.message || 'Signup failed. Please check your details.');
-    }
+  const signup = async (name: string, email: string, password: string, role: UserRole) => {
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    await sendEmailVerification(userCredential.user);
+    const initialData = { name, role, createdAt: Date.now(), onboardingStatus: 'PROFILE_PENDING', isVerified: false, isBlocked: false, totalClaimed: 0, amountDue: 0, isBarterEnabled: false };
+    await set(ref(db, `users/${userCredential.user.uid}`), initialData);
+    setUser({ id: userCredential.user.uid, email, ...initialData });
   };
 
-  const login = async (email: string) => {
-    // Admin Override - Check BEFORE hitting Supabase to avoid "Invalid Email" errors on mock accounts
-    if (email === 'admin@collabset.com') {
-      setUser({
-        id: 'admin_001',
-        name: 'System Admin',
-        email: 'admin@collabset.com',
-        role: 'Admin',
-        isVerified: true,
-        profileComplete: 100,
-        onboardingStatus: 'COMPLETED',
-        createdAt: Date.now()
-      });
-      navigate('/admin');
-      return;
-    }
-
-    try {
-      const { error } = await supabase.auth.signInWithOtp({ email });
-      if (error) throw error;
-    } catch (err: any) {
-      // Provide a clearer error message for the user
-      throw new Error(err.message || 'Login failed. This email might be restricted or invalid.');
-    }
+  const login = async (email: string, password: string) => {
+    await signInWithEmailAndPassword(auth, email, password);
   };
 
-  const verifyOtp = async (otp: string) => {
-    if (otp === '123456' && user) {
-      const updated = { ...user, isVerified: true, onboardingStatus: 'PROFILE_PENDING' as const };
-      setUser(updated);
-      return true;
-    }
-    return false;
-  };
-
-  const completeProfile = async (data: any) => {
-    if (user && user.id !== 'pending') {
-      try {
-        await updateProfile(user.id, {
-          avatar_url: data.avatar,
-          full_name: data.brandName || user.name
-        });
-        const updatedUser = { 
-          ...user, 
-          avatar: data.avatar, 
-          onboardingStatus: 'COMPLETED' as const 
-        };
-        setUser(updatedUser);
-        navigate('/dashboard');
-      } catch (err) {
-        console.error("Failed to complete profile", err);
-      }
+  const loginWithGoogle = async (role: UserRole) => {
+    const provider = new GoogleAuthProvider();
+    const result = await signInWithPopup(auth, provider);
+    const userRef = ref(db, `users/${result.user.uid}`);
+    const snapshot = await get(userRef);
+    if (!snapshot.exists()) {
+      const initialData = { name: result.user.displayName, role, createdAt: Date.now(), onboardingStatus: 'PROFILE_PENDING', isVerified: true, totalClaimed: 0, amountDue: 0, isBarterEnabled: false };
+      await set(userRef, initialData);
     }
   };
 
   const logout = async () => {
-    await supabase.auth.signOut();
+    await signOut(auth);
     setUser(null);
     navigate('/');
   };
 
-  const sendRequest = (toId: string) => {
-    const newReq: CollabRequest = {
-      id: `req_${Date.now()}`,
-      fromId: user?.id || '',
-      toId,
-      status: 'Pending',
-      timestamp: Date.now()
-    };
-    setRequests([...requests, newReq]);
+  const updateDealStatus = async (dealId: string, status: ProjectStatus, workLink?: string) => {
+    const updates: any = { projectStatus: status, lastUpdated: Date.now() };
+    if (workLink) updates.workLink = workLink;
+    await update(ref(db, `deals/${dealId}`), updates);
   };
 
-  const updateRequestStatus = (requestId: string, status: 'Accepted' | 'Rejected') => {
-    setRequests(prev => prev.map(r => r.id === requestId ? { ...r, status } : r));
+  const updatePaymentStatus = async (dealId: string, status: PaymentStatus) => {
+    await update(ref(db, `deals/${dealId}`), { paymentStatus: status, lastUpdated: Date.now() });
   };
 
-  const sendMessage = async (otherUserId: string, text: string) => {
+  const acceptCollabRequest = async (requestId: string) => {
+    const req = requests.find(r => r.id === requestId);
+    if (!req) return;
+    await update(ref(db, `requests/${requestId}`), { status: 'Accepted' });
+    
+    // Auto-create a Deal entry
+    const influencerId = req.fromId;
+    const brandId = req.toId;
+    const brand = allUsers.find(u => u.id === brandId);
+    const influencer = allUsers.find(u => u.id === influencerId);
+
+    const dealRef = push(ref(db, 'deals'));
+    await set(dealRef, {
+      id: dealRef.key,
+      influencerId,
+      brandId,
+      brandName: brand?.brandName || brand?.name || 'Brand',
+      influencerName: influencer?.name || 'Influencer',
+      amount: influencer?.pricePerPost || 0,
+      projectStatus: 'DEAL_SIGNED',
+      paymentStatus: 'AWAITING_BRAND',
+      timestamp: Date.now(),
+      lastUpdated: Date.now()
+    });
+  };
+
+  const completeProfile = async (data: any) => {
     if (!user) return;
-    try {
-      const conversationId = await getOrCreateConversation(user.id, otherUserId);
-      await sendMessageToSupabase(conversationId, user.id, otherUserId, text);
-    } catch (err) {
-      console.error("Message send failed", err);
-    }
+    await update(ref(db, `users/${user.id}`), { ...data, onboardingStatus: 'COMPLETED' });
   };
 
-  const adminVerifyUser = (userId: string) => {};
-  const adminDeleteUser = (userId: string) => {};
+  const toggleBarterStatus = async (enabled: boolean) => {
+    if (!user) return;
+    await update(ref(db, `users/${user.id}`), { isBarterEnabled: enabled });
+    setUser((prev: any) => ({ ...prev, isBarterEnabled: enabled }));
+  };
+
+  const sendCollabRequest = async (toId: string, initialMessage?: string) => {
+    if (!user) return;
+    const newRequestRef = push(ref(db, 'requests'));
+    await set(newRequestRef, {
+      fromId: user.id,
+      toId: toId,
+      status: 'Pending',
+      timestamp: Date.now(),
+      initialMessage: initialMessage || "Interested in collaborating!"
+    });
+  };
+
+  // Remaining administrative and helper stubs to keep standard
+  const adminLogin = async () => {};
+  const sendPasswordReset = async (email: string) => await sendPasswordResetEmail(auth, email);
+  const resendVerificationEmail = async () => {};
+  const checkVerification = async () => true;
+  const adminVerifyUser = async () => {};
+  const adminBlockUser = async () => {};
+  const adminDeleteUser = async () => {};
+  const saveBlogPost = async () => {};
+  const deleteBlogPost = async () => {};
+  const rejectCollabRequest = async (id: string) => await update(ref(db, `requests/${id}`), { status: 'Rejected' });
+  const createDirectChat = async (toId: string) => {
+    const existing = requests.find(r => (r.fromId === user?.id && r.toId === toId) || (r.fromId === toId && r.toId === user?.id));
+    if (!existing) await sendCollabRequest(toId);
+  };
 
   return (
     <AuthContext.Provider value={{ 
-      user, allUsers, requests, messages, signup, login, verifyOtp, completeProfile, logout,
-      sendRequest, updateRequestStatus, sendMessage, adminVerifyUser, adminDeleteUser
+      user, allUsers, requests, blogs, deals, loading, isAriaOpen, setIsAriaOpen, login, adminLogin, signup, loginWithGoogle, logout, sendPasswordReset, resendVerificationEmail, completeProfile, toggleBarterStatus, checkVerification, adminVerifyUser, adminBlockUser, adminDeleteUser,
+      saveBlogPost, deleteBlogPost, sendCollabRequest, acceptCollabRequest, rejectCollabRequest, createDirectChat, updateDealStatus, updatePaymentStatus
     }}>
       {children}
     </AuthContext.Provider>
