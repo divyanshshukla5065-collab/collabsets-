@@ -9,6 +9,19 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { MarketplaceShutter } from '../components/MarketplaceShutter';
 import { useNavigate } from 'react-router-dom';
 
+// Simple fuzzy matching helper: checks if characters of 'query' appear in 'target' in order
+const fuzzyMatch = (query: string, target: string): boolean => {
+  const q = query.toLowerCase();
+  const t = target.toLowerCase();
+  let i = 0;
+  let j = 0;
+  while (i < q.length && j < t.length) {
+    if (q[i] === t[j]) i++;
+    j++;
+  }
+  return i === q.length;
+};
+
 export const Dashboard: React.FC = () => {
   const { user, allUsers, deals, toggleBarterStatus } = useAuth();
   const navigate = useNavigate();
@@ -33,12 +46,38 @@ export const Dashboard: React.FC = () => {
 
   const filteredData = useMemo(() => {
     const targetRole = isBrand ? 'Influencer' : 'Brand';
+    const searchTokens = search.toLowerCase().split(/\s+/).filter(Boolean);
+
     return allUsers.filter(u => {
-      const isTarget = u.role === targetRole;
-      const matchesSearch = (u.name || u.brandName || '').toLowerCase().includes(search.toLowerCase());
-      const matchesCategory = category === 'All' || u.category === category;
+      // 1. Role Filter
+      if (u.role !== targetRole) return false;
+
+      // 2. Barter Filter
       if (showBarterOnly && !u.isBarterEnabled) return false;
-      return isTarget && matchesSearch && matchesCategory;
+
+      // 3. Category Filter
+      if (category !== 'All' && u.category !== category) return false;
+
+      // 4. Advanced Keyword & Fuzzy Search
+      if (searchTokens.length > 0) {
+        const searchableText = [
+          u.name,
+          u.brandName,
+          u.category,
+          u.city,
+          u.bio
+        ].filter(Boolean).join(' ').toLowerCase();
+
+        // Must match EVERY keyword (Intersection search)
+        const allKeywordsMatch = searchTokens.every(token => {
+          // Check for direct inclusion or fuzzy sequence match
+          return searchableText.includes(token) || fuzzyMatch(token, searchableText);
+        });
+
+        if (!allKeywordsMatch) return false;
+      }
+
+      return true;
     });
   }, [allUsers, isBrand, search, category, showBarterOnly]);
 
@@ -129,7 +168,7 @@ export const Dashboard: React.FC = () => {
                 <div className="relative flex-1 group">
                   <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-purple-600 transition-colors" />
                   <input 
-                    type="text" placeholder={`Search for names or categories...`}
+                    type="text" placeholder={`Try "Mumbai Tech" or "Fashion Delhi"...`}
                     value={search} onChange={(e) => setSearch(e.target.value)}
                     className="w-full pl-16 pr-6 py-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-[28px] shadow-xl focus:ring-4 focus:ring-purple-600/10 outline-none text-slate-950 dark:text-white font-bold text-base"
                   />
