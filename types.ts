@@ -1,5 +1,28 @@
+export type UserRole = 'Influencer' | 'Brand' | 'Admin' | 'Team' | null;
 
-export type UserRole = 'Influencer' | 'Brand' | 'Admin' | null;
+export type DeliverableType = 'Reel' | 'Post' | 'Story';
+
+export type CampaignStatus = 'Live' | 'Active' | 'Blocked' | 'Completed';
+
+export interface Campaign {
+  id: string;
+  brandId: string;
+  brandName: string;
+  name: string;
+  type: 'Paid' | 'Barter';
+  deliverables: DeliverableType[];
+  creatorCount: number;
+  minFollowers: number;
+  budget: number;
+  niche: string;
+  description: string;
+  targetAge: string;
+  targetGender: string;
+  status: CampaignStatus;
+  timestamp: number;
+  declinedBy?: string[]; // Array of influencer IDs who declined
+  acceptedBy?: string[]; // Array of influencer IDs who accepted
+}
 
 export interface User {
   id: string;
@@ -8,10 +31,9 @@ export interface User {
   role: UserRole;
   avatar?: string;
   isVerified: boolean;
-  profileComplete: number; // 0-100
+  profileComplete: number; 
   onboardingStatus: 'OTP_PENDING' | 'PROFILE_PENDING' | 'COMPLETED';
   createdAt: number;
-  // Profile fields
   category?: string;
   city?: string;
   brandName?: string;
@@ -29,7 +51,6 @@ export interface User {
   gender?: string;
   age?: number;
   isBarterEnabled?: boolean;
-  // Financial metrics (Private)
   totalClaimed?: number;
   amountDue?: number;
 }
@@ -39,6 +60,7 @@ export type PaymentStatus = 'AWAITING_BRAND' | 'HELD_IN_ESCROW' | 'RELEASED';
 
 export interface Deal {
   id: string;
+  campaignId?: string; // Link to specific campaign
   influencerId: string;
   brandId: string;
   brandName: string;
@@ -58,6 +80,7 @@ export interface CollabRequest {
   status: 'Pending' | 'Accepted' | 'Rejected';
   timestamp: number;
   initialMessage?: string;
+  campaignId?: string;
 }
 
 export interface ChatMessage {

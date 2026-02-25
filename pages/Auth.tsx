@@ -61,6 +61,7 @@ export const Auth: React.FC = () => {
     setIsGoogleLoading(true);
     try {
       await loginWithGoogle(formData.role);
+      navigate('/complete-profile');
     } catch (err: any) {
       setError(formatError(err));
       setIsGoogleLoading(false);
@@ -81,7 +82,7 @@ export const Auth: React.FC = () => {
     try {
       if (isLogin) {
         await login(formData.email, formData.password);
-        navigate('/dashboard');
+        navigate('/complete-profile');
       } else {
         await signup(formData.name, formData.email, formData.password, formData.role);
         navigate('/complete-profile');

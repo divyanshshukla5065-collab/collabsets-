@@ -1,7 +1,6 @@
-
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Shield, Hammer, Users, Heart, ArrowUpRight } from 'lucide-react';
+import { Shield, Hammer, Users, Heart, ArrowUpRight, MessageCircle, Mail } from 'lucide-react';
 import { Logo } from './Logo';
 
 export const Footer: React.FC = () => {
@@ -64,9 +63,25 @@ export const Footer: React.FC = () => {
           </div>
 
           <div className="bg-slate-50 dark:bg-slate-900/50 p-8 rounded-[32px] border border-slate-100 dark:border-slate-800">
-            <h4 className="text-[10px] font-black text-purple-600 uppercase tracking-[0.3em] mb-4">Elite Support</h4>
-            <p className="text-xs text-slate-500 dark:text-slate-400 font-bold mb-4">Need assistance with a campaign or identity verification?</p>
-            <a href="mailto:collabsets.in@gmail.com" className="text-sm font-black text-slate-950 dark:text-white hover:underline">collabsets.in@gmail.com</a>
+            <h4 className="text-[10px] font-black text-purple-600 uppercase tracking-[0.3em] mb-6">Elite Support</h4>
+            <div className="space-y-6">
+              <div className="flex flex-col gap-3">
+                <a href="mailto:collabsets.in@gmail.com" className="flex items-center gap-2 text-[11px] font-black text-slate-950 dark:text-white hover:text-purple-600 transition-colors truncate">
+                  <Mail size={12} className="shrink-0" /> collabsets.in@gmail.com
+                </a>
+                <a href="mailto:divyanshshukla5064@gmail.com" className="flex items-center gap-2 text-[11px] font-black text-slate-950 dark:text-white hover:text-purple-600 transition-colors truncate">
+                  <Mail size={12} className="shrink-0" /> divyanshshukla5064@gmail.com
+                </a>
+              </div>
+              <a 
+                href="https://wa.me/918957786975" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 w-full py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-green-500 hover:text-white dark:hover:bg-green-600 transition-all active:scale-95 shadow-sm"
+              >
+                <MessageCircle size={14} className="text-green-500 group-hover:text-white" /> WhatsApp Us
+              </a>
+            </div>
           </div>
         </div>
 

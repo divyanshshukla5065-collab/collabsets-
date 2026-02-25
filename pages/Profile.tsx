@@ -1,5 +1,4 @@
-
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { 
@@ -7,11 +6,10 @@ import {
   Briefcase, Globe, Upload, ShieldCheck, Twitter, 
   Linkedin, Sparkles, User as UserIcon, Youtube, 
   AlertCircle, Save, Layout, RefreshCw, PencilLine,
-  ChevronLeft
+  ChevronLeft, Trash2, Power, CheckCircle2, Rocket
 } from 'lucide-react';
 import { CATEGORIES, CITIES } from '../constants';
 import Cropper from 'react-easy-crop';
-// Fix: Verified named exports from react-router-dom
 import { useNavigate } from 'react-router-dom';
 
 const PRESET_AVATARS = [
@@ -33,12 +31,18 @@ const InputLabel: React.FC<{ children: React.ReactNode; required?: boolean }> = 
 );
 
 export const Profile: React.FC = () => {
-  const { user, completeProfile } = useAuth();
+  const { user, completeProfile, campaigns, updateCampaign, deleteCampaign } = useAuth();
   const navigate = useNavigate();
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const isInfluencer = user?.role === 'Influencer';
+  const isBrand = user?.role === 'Brand';
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const myCampaigns = useMemo(() => {
+    if (!isBrand) return [];
+    return campaigns.filter(c => c.brandId === user?.id);
+  }, [campaigns, isBrand, user?.id]);
 
   const [form, setForm] = useState<any>({
     avatar: PRESET_AVATARS[0],
@@ -140,6 +144,21 @@ export const Profile: React.FC = () => {
     }
   };
 
+  const toggleCampaign = (c: any) => {
+    const newStatus = c.status === 'Active' ? 'Inactive' : 'Active';
+    updateCampaign(c.id, { status: newStatus });
+  };
+
+  const markCompleted = (c: any) => {
+    updateCampaign(c.id, { status: 'Completed' });
+  };
+
+  const handleDelete = (campaignId: string) => {
+    if (window.confirm("Purge this campaign from the network? This cannot be undone.")) {
+      deleteCampaign(campaignId);
+    }
+  };
+
   const bioText = form.bio || '';
   const bioLength = bioText.length;
   const bioProgress = (bioLength / BIO_CHAR_LIMIT) * 100;
@@ -175,10 +194,10 @@ export const Profile: React.FC = () => {
           )}
         </AnimatePresence>
 
-        <form onSubmit={handleSubmit} className="space-y-12">
+        <div className="space-y-12">
           {/* Avatar Section */}
           <section className="bg-white dark:bg-slate-900 p-8 md:p-12 rounded-[44px] border border-slate-100 dark:border-slate-800 shadow-sm">
-            <h3 className="text-2xl font-black mb-10 flex items-center text-slate-950 dark:text-white">
+            <h3 className="text-2xl font-black mb-10 flex items-center text-slate-950 dark:text-white uppercase tracking-tighter">
               <Camera className="w-6 h-6 mr-4 text-purple-600" /> Profile Visuals
             </h3>
             <div className="flex flex-col lg:flex-row items-center gap-12">
@@ -224,10 +243,91 @@ export const Profile: React.FC = () => {
             </div>
           </section>
 
+          {/* My Campaigns Section (For Brands) */}
+          {isBrand && (
+            <section className="bg-white dark:bg-slate-900 p-8 md:p-12 rounded-[44px] border border-slate-100 dark:border-slate-800 shadow-sm">
+              <div className="flex justify-between items-center mb-10">
+                <h3 className="text-2xl font-black flex items-center text-slate-950 dark:text-white uppercase tracking-tighter">
+                  <Rocket className="w-6 h-6 mr-4 text-purple-600" /> My Campaigns
+                </h3>
+                <button 
+                  onClick={() => navigate('/brand/create-campaign')}
+                  className="px-6 py-3 bg-purple-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg active-scale"
+                >
+                  New Campaign
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {myCampaigns.length > 0 ? (
+                  myCampaigns.map((c) => (
+                    <div key={c.id} className="p-6 bg-slate-50 dark:bg-slate-800/50 rounded-3xl border border-slate-100 dark:border-slate-700 space-y-6 flex flex-col group">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="text-[9px] font-black text-purple-600 uppercase tracking-widest mb-1">{c.type}</p>
+                          <h4 className="text-lg font-black text-slate-950 dark:text-white uppercase tracking-tight line-clamp-1">{c.name}</h4>
+                        </div>
+                        <span className={`px-3 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest ${
+                          c.status === 'Active' ? 'bg-green-100 text-green-600' : 
+                          c.status === 'Completed' ? 'bg-blue-100 text-blue-600' : 'bg-slate-200 text-slate-500'
+                        }`}>
+                          {c.status}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2 py-4 border-y border-slate-100 dark:border-slate-700">
+                         <div className="text-center">
+                            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Budget</p>
+                            <p className="text-xs font-black dark:text-white">₹{c.budget}</p>
+                         </div>
+                         <div className="text-center">
+                            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Reach</p>
+                            <p className="text-xs font-black dark:text-white">{c.minFollowers/1000}K+</p>
+                         </div>
+                         <div className="text-center">
+                            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Target</p>
+                            <p className="text-xs font-black dark:text-white">{c.creatorCount}</p>
+                         </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 pt-2">
+                        <button 
+                          onClick={() => toggleCampaign(c)}
+                          className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${
+                            c.status === 'Active' ? 'bg-slate-200 dark:bg-slate-700 text-slate-600' : 'bg-green-600 text-white shadow-lg'
+                          }`}
+                        >
+                          <Power size={12} /> {c.status === 'Active' ? 'Turn Off' : 'Turn On'}
+                        </button>
+                        <button 
+                          onClick={() => markCompleted(c)}
+                          disabled={c.status === 'Completed'}
+                          className="flex-1 flex items-center justify-center gap-2 py-3 bg-blue-600 text-white rounded-xl text-[9px] font-black uppercase tracking-widest shadow-lg active-scale disabled:opacity-30"
+                        >
+                          <CheckCircle2 size={12} /> Complete
+                        </button>
+                        <button 
+                          onClick={() => handleDelete(c.id)}
+                          className="p-3 bg-red-50 dark:bg-red-950/20 text-red-600 rounded-xl hover:bg-red-100 transition-all"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="col-span-full py-12 text-center bg-slate-50 dark:bg-slate-800/30 rounded-3xl border-2 border-dashed border-slate-200 dark:border-slate-700">
+                    <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">No active protocols manifested yet.</p>
+                  </div>
+                )}
+              </div>
+            </section>
+          )}
+
           {/* Form Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <section className="p-8 md:p-12 bg-white dark:bg-slate-900 rounded-[44px] border border-slate-100 dark:border-slate-800 shadow-sm space-y-8">
-               <h3 className="text-xl font-black flex items-center text-slate-950 dark:text-white">
+               <h3 className="text-xl font-black flex items-center text-slate-950 dark:text-white uppercase tracking-tighter">
                   <Globe className="w-5 h-5 mr-3 text-amber-500" /> Marketplace Scope
                </h3>
                <div className="space-y-6">
@@ -247,7 +347,7 @@ export const Profile: React.FC = () => {
             </section>
 
             <section className="p-8 md:p-12 bg-white dark:bg-slate-900 rounded-[44px] border border-slate-100 dark:border-slate-800 shadow-sm space-y-8">
-               <h3 className="text-xl font-black flex items-center text-slate-950 dark:text-white">
+               <h3 className="text-xl font-black flex items-center text-slate-950 dark:text-white uppercase tracking-tighter">
                   <DollarSign className="w-5 h-5 mr-3 text-green-500" /> Commercials
                </h3>
                <div className="space-y-6">
@@ -279,7 +379,7 @@ export const Profile: React.FC = () => {
           {/* Bio Section */}
           <section className="p-8 md:p-12 bg-white dark:bg-slate-900 rounded-[44px] border border-slate-100 dark:border-slate-800 shadow-sm">
             <div className="flex justify-between items-center mb-10">
-              <h3 className="text-2xl font-black flex items-center text-slate-950 dark:text-white">
+              <h3 className="text-2xl font-black flex items-center text-slate-950 dark:text-white uppercase tracking-tighter">
                 <PencilLine className="w-6 h-6 mr-4 text-purple-600" /> Professional Bio
               </h3>
               <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full ${bioLength >= BIO_CHAR_LIMIT ? 'bg-red-100 text-red-600' : 'bg-slate-100 text-slate-500'}`}>
@@ -307,7 +407,7 @@ export const Profile: React.FC = () => {
 
           {/* Social Presence */}
           <section className="p-8 md:p-12 bg-white dark:bg-slate-900 rounded-[44px] border border-slate-100 dark:border-slate-800 shadow-sm">
-            <h3 className="text-2xl font-black mb-10 flex items-center text-slate-950 dark:text-white">
+            <h3 className="text-2xl font-black mb-10 flex items-center text-slate-950 dark:text-white uppercase tracking-tighter">
               <Sparkles className="w-6 h-6 mr-4 text-pink-500" /> Verified Links
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -352,7 +452,7 @@ export const Profile: React.FC = () => {
               </div>
             </div>
           </section>
-        </form>
+        </div>
       </div>
 
       {/* Sticky Bottom Action Bar */}

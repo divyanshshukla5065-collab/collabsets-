@@ -3,13 +3,15 @@ import { useAuth } from '../context/AuthContext';
 import { CATEGORIES } from '../constants';
 import { 
   Search, Bot, Zap, CreditCard, Activity, 
-  Handshake, ShieldCheck, Filter, BarChart3
+  Handshake, ShieldCheck, Filter, BarChart3,
+  Rocket, Plus, Briefcase, Settings2, Target,
+  Calendar, Check, X, AlertCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MarketplaceShutter } from '../components/MarketplaceShutter';
 import { useNavigate } from 'react-router-dom';
 
-// Simple fuzzy matching helper: checks if characters of 'query' appear in 'target' in order
+// Simple fuzzy matching helper
 const fuzzyMatch = (query: string, target: string): boolean => {
   const q = query.toLowerCase();
   const t = target.toLowerCase();
@@ -23,7 +25,7 @@ const fuzzyMatch = (query: string, target: string): boolean => {
 };
 
 export const Dashboard: React.FC = () => {
-  const { user, allUsers, deals, toggleBarterStatus } = useAuth();
+  const { user, allUsers, deals, campaigns, toggleBarterStatus, acceptCampaign, declineCampaign } = useAuth();
   const navigate = useNavigate();
   
   const [search, setSearch] = useState('');
@@ -49,37 +51,27 @@ export const Dashboard: React.FC = () => {
     const searchTokens = search.toLowerCase().split(/\s+/).filter(Boolean);
 
     return allUsers.filter(u => {
-      // 1. Role Filter
       if (u.role !== targetRole) return false;
-
-      // 2. Barter Filter
       if (showBarterOnly && !u.isBarterEnabled) return false;
-
-      // 3. Category Filter
       if (category !== 'All' && u.category !== category) return false;
-
-      // 4. Advanced Keyword & Fuzzy Search
       if (searchTokens.length > 0) {
-        const searchableText = [
-          u.name,
-          u.brandName,
-          u.category,
-          u.city,
-          u.bio
-        ].filter(Boolean).join(' ').toLowerCase();
-
-        // Must match EVERY keyword (Intersection search)
-        const allKeywordsMatch = searchTokens.every(token => {
-          // Check for direct inclusion or fuzzy sequence match
-          return searchableText.includes(token) || fuzzyMatch(token, searchableText);
-        });
-
+        const searchableText = [u.name, u.brandName, u.category, u.city, u.bio].filter(Boolean).join(' ').toLowerCase();
+        const allKeywordsMatch = searchTokens.every(token => searchableText.includes(token) || fuzzyMatch(token, searchableText));
         if (!allKeywordsMatch) return false;
       }
-
       return true;
     });
   }, [allUsers, isBrand, search, category, showBarterOnly]);
+
+  const liveOpportunities = useMemo(() => {
+    if (!isInfluencer) return [];
+    return campaigns.filter(c => 
+      c.status === 'Live' && 
+      !c.declinedBy?.includes(user?.id) && 
+      !c.acceptedBy?.includes(user?.id) &&
+      (c.niche === 'All' || c.niche === user?.category)
+    );
+  }, [campaigns, isInfluencer, user?.id, user?.category]);
 
   const activeDeals = useMemo(() => {
     return deals.filter(d => isInfluencer ? d.influencerId === user?.id : d.brandId === user?.id);
@@ -92,53 +84,20 @@ export const Dashboard: React.FC = () => {
     return { claimed, due, count: activeDeals.length };
   }, [isInfluencer, activeDeals]);
 
+  const myCampaigns = useMemo(() => {
+    if (!isBrand) return [];
+    return campaigns.filter(c => c.brandId === user?.id);
+  }, [campaigns, isBrand, user?.id]);
+
   return (
     <>
       <AnimatePresence>
         {isShutterActive && <MarketplaceShutter onComplete={() => setIsShutterActive(false)} />}
       </AnimatePresence>
 
-      <AnimatePresence>
-        {showBarterOnboarding && (
-          <motion.div 
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-3xl"
-          >
-            <motion.div 
-              initial={{ scale: 0.95, y: 30 }} animate={{ scale: 1, y: 0 }}
-              className="max-w-lg w-full bg-white dark:bg-slate-900 rounded-[48px] p-10 text-center border border-white/10 shadow-3xl relative overflow-hidden"
-            >
-              <div className="absolute -top-10 -right-10 w-48 h-48 bg-purple-500/10 rounded-full blur-3xl" />
-              <div className="w-20 h-20 bg-purple-600 rounded-[24px] flex items-center justify-center mx-auto mb-8 shadow-xl">
-                <Handshake className="text-white w-10 h-10" />
-              </div>
-              <h2 className="text-3xl font-black dark:text-white uppercase tracking-tighter mb-4">Enable Barter?</h2>
-              <p className="text-slate-500 dark:text-slate-400 font-bold mb-10 text-base leading-relaxed px-6">
-                Exchange products for professional content. Perfect for new launches and rapid product seeding.
-              </p>
-              <div className="space-y-3">
-                <button 
-                  onClick={() => { toggleBarterStatus(true); setShowBarterOnboarding(false); }}
-                  className="w-full py-5 bg-slate-950 dark:bg-white text-white dark:text-slate-900 font-black rounded-2xl active-scale uppercase tracking-widest text-[10px] shadow-xl"
-                >
-                  Yes, Enable
-                </button>
-                <button 
-                  onClick={() => { toggleBarterStatus(false); setShowBarterOnboarding(false); }}
-                  className="w-full py-4 text-slate-400 font-black uppercase tracking-widest text-[9px] hover:text-slate-600 transition-colors"
-                >
-                  Not Now
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       <div className="min-h-screen bg-slate-50 dark:bg-[#030712] pb-48">
         <div className="max-w-[1600px] mx-auto px-8 py-12 lg:py-20">
           
-          {/* Top Desktop Metrics */}
           {isInfluencer && financialStats && (
             <motion.div 
               initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}
@@ -164,7 +123,15 @@ export const Dashboard: React.FC = () => {
                 </h1>
               </div>
               
-              <div className="flex flex-col sm:flex-row w-full lg:max-w-3xl gap-5">
+              <div className="flex flex-col sm:flex-row w-full lg:max-w-4xl gap-5">
+                {isBrand && (
+                  <button 
+                    onClick={() => navigate('/brand/create-campaign')}
+                    className="px-10 py-5 bg-gradient-premium text-white rounded-[28px] font-black text-[11px] uppercase tracking-widest flex items-center justify-center gap-3 shadow-2xl active-scale hover:shadow-purple-500/40 transition-all border border-white/20"
+                  >
+                    <Rocket size={20} /> Manifest Campaign
+                  </button>
+                )}
                 <div className="relative flex-1 group">
                   <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-purple-600 transition-colors" />
                   <input 
@@ -184,43 +151,94 @@ export const Dashboard: React.FC = () => {
           </header>
 
           <div className="flex flex-col lg:flex-row gap-12 lg:gap-20 items-start">
-            {/* Desktop Sticky Sidebar */}
             <aside className="lg:w-80 flex-shrink-0 space-y-12 lg:sticky lg:top-32">
               
-              <motion.div 
-                whileHover={{ y: -5 }}
-                className={`p-8 rounded-[44px] border-2 transition-all duration-700 relative overflow-hidden ${
-                  showBarterOnly 
-                  ? 'bg-slate-950 border-purple-500 shadow-2xl shadow-purple-500/20' 
-                  : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 shadow-lg'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-8">
-                  <div className={`p-4 rounded-2xl ${showBarterOnly ? 'bg-purple-600 text-white shadow-xl' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'}`}>
-                    <Handshake size={24} />
-                  </div>
-                  {isInfluencer && (
+              {isInfluencer && liveOpportunities.length > 0 && (
+                 <div className="space-y-6">
+                    <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-400 flex items-center gap-3 px-1">
+                      <Zap size={16} className="text-amber-500" /> Opportunity Radar
+                    </h3>
+                    <div className="space-y-4">
+                       <AnimatePresence mode="popLayout">
+                         {liveOpportunities.map(opp => (
+                           <motion.div 
+                            key={opp.id} 
+                            layout 
+                            initial={{ opacity: 0, x: -20 }} 
+                            animate={{ opacity: 1, x: 0 }} 
+                            exit={{ opacity: 0, x: 20 }}
+                            className="p-6 bg-slate-950 rounded-[32px] border border-white/5 shadow-2xl overflow-hidden relative group"
+                           >
+                             <div className="absolute top-0 right-0 p-6 opacity-5 pointer-events-none group-hover:scale-110 transition-transform">
+                               <Rocket size={80} />
+                             </div>
+                             <div className="relative z-10">
+                               <p className="text-[8px] font-black text-purple-400 uppercase tracking-widest mb-1">{opp.brandName}</p>
+                               <h4 className="text-white font-black uppercase text-sm truncate mb-4">{opp.name}</h4>
+                               <div className="flex flex-wrap gap-2 mb-6">
+                                 {opp.deliverables.map(d => (
+                                   <span key={d} className="px-2 py-0.5 bg-white/10 rounded-md text-[7px] font-black text-slate-300 uppercase">{d}</span>
+                                 ))}
+                               </div>
+                               <div className="flex items-center justify-between mb-6">
+                                  <div>
+                                    <p className="text-[7px] font-black text-slate-500 uppercase">Budget</p>
+                                    <p className="text-sm font-black text-amber-400">₹{opp.budget}</p>
+                                  </div>
+                                  <div className="text-right">
+                                    <p className="text-[7px] font-black text-slate-500 uppercase">Target</p>
+                                    <p className="text-sm font-black text-white">{opp.creatorCount} Creators</p>
+                                  </div>
+                               </div>
+                               <div className="flex gap-2">
+                                  <button 
+                                    onClick={() => acceptCampaign(opp.id)}
+                                    className="flex-1 py-3 bg-purple-600 text-white rounded-xl text-[8px] font-black uppercase tracking-widest active-scale hover:bg-purple-500 transition-colors flex items-center justify-center gap-1.5"
+                                  >
+                                    <Check size={12} /> Accept
+                                  </button>
+                                  <button 
+                                    onClick={() => declineCampaign(opp.id)}
+                                    className="px-4 py-3 bg-white/5 text-slate-400 rounded-xl text-[8px] font-black uppercase tracking-widest active-scale hover:bg-red-500/10 hover:text-red-500 transition-all flex items-center justify-center"
+                                  >
+                                    <X size={12} />
+                                  </button>
+                               </div>
+                             </div>
+                           </motion.div>
+                         ))}
+                       </AnimatePresence>
+                    </div>
+                 </div>
+              )}
+
+              {isBrand && myCampaigns.length > 0 && (
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between px-1">
+                    <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-400 flex items-center gap-3">
+                      <Briefcase size={16} /> My Campaigns
+                    </h3>
                     <button 
-                      onClick={() => toggleBarterStatus(!user?.isBarterEnabled)}
-                      className={`w-12 h-6 rounded-full p-1 transition-all ${user?.isBarterEnabled ? 'bg-purple-600' : 'bg-slate-200 dark:bg-slate-700'}`}
+                      onClick={() => navigate('/brand/manage-campaigns')}
+                      className="text-[9px] font-black text-purple-600 uppercase tracking-widest flex items-center gap-1 hover:underline"
                     >
-                       <motion.div animate={{ x: user?.isBarterEnabled ? 24 : 0 }} className="w-4 h-4 bg-white rounded-full shadow-md" />
+                      Manage All <Settings2 size={10} />
                     </button>
-                  )}
+                  </div>
+                  <div className="space-y-4">
+                    {myCampaigns.slice(0, 3).map(c => (
+                      <div key={c.id} className="p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
+                        <p className="text-[9px] font-black text-purple-600 uppercase tracking-widest mb-1">{c.type}</p>
+                        <h4 className="text-sm font-black dark:text-white uppercase truncate">{c.name}</h4>
+                        <div className="mt-3 flex justify-between items-center">
+                          <span className="text-[8px] font-bold text-slate-400">{c.creatorCount} Creators Target</span>
+                          <span className={`w-2 h-2 rounded-full ${c.status === 'Live' ? 'bg-green-500 animate-pulse' : 'bg-slate-300'}`} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <h3 className={`text-lg font-black uppercase tracking-tight mb-2 ${showBarterOnly ? 'text-white' : 'text-slate-950 dark:text-white'}`}>Barter Mode</h3>
-                <p className={`text-[9px] font-black uppercase tracking-widest mb-8 ${showBarterOnly ? 'text-purple-400' : 'text-slate-400'}`}>Exchange Products for Content</p>
-                <button 
-                  onClick={() => setShowBarterOnly(!showBarterOnly)}
-                  className={`w-full py-4 rounded-[20px] text-[10px] font-black uppercase tracking-widest transition-all ${
-                    showBarterOnly 
-                    ? 'bg-white text-slate-950 shadow-xl' 
-                    : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
-                  }`}
-                >
-                  {showBarterOnly ? 'Show All' : 'Only Barter'}
-                </button>
-              </motion.div>
+              )}
 
               <div className="space-y-8 px-2">
                 <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-400 flex items-center gap-3">
@@ -243,7 +261,6 @@ export const Dashboard: React.FC = () => {
               </div>
             </aside>
 
-            {/* Content Feed - Desktop 3 Columns */}
             <main className="flex-1">
               <motion.div layout className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
                 <AnimatePresence mode="popLayout">
@@ -259,7 +276,7 @@ export const Dashboard: React.FC = () => {
                     <Search className="w-10 h-10 text-slate-300" />
                   </div>
                   <h3 className="text-3xl font-black text-slate-950 dark:text-white uppercase tracking-tighter mb-4">No Matches</h3>
-                  <p className="text-slate-500 dark:text-slate-400 font-bold max-w-sm text-base leading-relaxed">The network registry found zero entries for these parameters.</p>
+                  <p className="text-slate-500 dark:text-slate-400 font-bold max-sm text-base leading-relaxed">The network registry found zero entries for these parameters.</p>
                 </div>
               )}
             </main>

@@ -1,6 +1,5 @@
-
 import React from 'react';
-import { Mail, Shield, Scale, Info, Eye, Database, Lock, UserCheck, FileText, Heart, Handshake, Rocket, ArrowRight, RotateCcw, AlertTriangle } from 'lucide-react';
+import { Mail, Shield, Scale, Info, Eye, Database, Lock, UserCheck, FileText, Heart, Handshake, Rocket, ArrowRight, RotateCcw, AlertTriangle, MessageCircle } from 'lucide-react';
 // Fix: Verified named exports from react-router-dom
 import { Link } from 'react-router-dom';
 
@@ -37,15 +36,28 @@ export const Terms: React.FC = () => {
               <p>Collabset is a digital platform owned and operated by <strong>Shalini Shukla</strong> (Director & Proprietor).</p>
               <p>Collabset provides AI-powered suggestions, tools, and insights related to creator growth, collaborations, and digital decision-making.</p>
               <p>Currently, Collabset is not registered as a private limited company.</p>
-              <div className="pt-4 space-y-2 border-t border-slate-200 dark:border-slate-700">
-                <p className="text-xs font-black text-slate-500 uppercase tracking-widest">Contact Identity:</p>
-                <div className="flex flex-col gap-2">
-                  <a href="mailto:collabsets.in@gmail.com" className="flex items-center gap-2 text-purple-600 hover:underline font-bold">
-                    <Mail className="w-4 h-4" /> collabsets.in@gmail.com
-                  </a>
-                  <a href="mailto:divyanshshukla5064@gmail.com" className="flex items-center gap-2 text-purple-600 hover:underline font-bold">
-                    <Mail className="w-4 h-4" /> divyanshshukla5064@gmail.com
-                  </a>
+              <div className="pt-6 space-y-4 border-t border-slate-200 dark:border-slate-700">
+                <p className="text-xs font-black text-slate-500 uppercase tracking-widest">Official Contact Channels:</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-3">
+                    <a href="mailto:collabsets.in@gmail.com" className="flex items-center gap-2 text-purple-600 hover:underline font-bold transition-all">
+                      <Mail className="w-4 h-4" /> collabsets.in@gmail.com
+                    </a>
+                    <a href="mailto:divyanshshukla5064@gmail.com" className="flex items-center gap-2 text-purple-600 hover:underline font-bold transition-all">
+                      <Mail className="w-4 h-4" /> divyanshshukla5064@gmail.com
+                    </a>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <a 
+                      href="https://wa.me/918957786975" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 px-5 py-3 bg-green-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-all shadow-lg shadow-green-500/20 w-fit"
+                    >
+                      <MessageCircle className="w-4 h-4" /> WhatsApp Support
+                    </a>
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">+91 8957786975</p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -115,9 +127,15 @@ export const Terms: React.FC = () => {
 
           <div className="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-2xl text-center">
             <p className="text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Need to raise a dispute?</p>
-            <p className="text-sm text-slate-700 dark:text-slate-400 font-bold">
-              Contact our legal desk at <a href="mailto:collabsets.in@gmail.com" className="text-purple-600 hover:underline">collabsets.in@gmail.com</a> for a review of your case.
+            <p className="text-sm text-slate-700 dark:text-slate-400 font-bold mb-4">
+              Contact our legal desk for a review of your case:
             </p>
+            <div className="flex flex-wrap justify-center gap-4">
+               <a href="mailto:collabsets.in@gmail.com" className="text-purple-600 hover:underline font-black text-xs">collabsets.in@gmail.com</a>
+               <a href="https://wa.me/918957786975" className="text-green-600 hover:underline font-black text-xs flex items-center gap-1">
+                 <MessageCircle size={14} /> WhatsApp Support
+               </a>
+            </div>
           </div>
         </div>
 

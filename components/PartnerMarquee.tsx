@@ -1,7 +1,8 @@
-
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Zap } from 'lucide-react';
+import { Zap, ExternalLink } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 const PARTNERS = [
   { name: "SHAURYA GAIKWAD", image: "https://i.postimg.cc/sgvjhJFp/shaurya-leap.jpg" },
@@ -16,10 +17,20 @@ const PARTNERS = [
   { name: "SANJAY KUMAR", image: "https://i.postimg.cc/mD7XJ9yB/sanjay.jpg" }
 ];
 
-// Duplicate for seamless loop
 const DUPLICATED_PARTNERS = [...PARTNERS, ...PARTNERS, ...PARTNERS, ...PARTNERS];
 
 export const PartnerMarquee: React.FC = () => {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+
+  const handlePartnerClick = () => {
+    if (user) {
+      navigate('/dashboard');
+    } else {
+      navigate('/signup');
+    }
+  };
+
   return (
     <div className="w-full py-6 overflow-hidden bg-white/30 dark:bg-slate-900/10 border-b border-slate-200/50 dark:border-white/5">
       <div className="max-w-7xl mx-auto px-6 mb-4">
@@ -31,7 +42,7 @@ export const PartnerMarquee: React.FC = () => {
       <div className="relative flex">
         <motion.div
           animate={{
-            x: [-1500, 0], // Moving from left to right
+            x: [-1500, 0],
           }}
           transition={{
             duration: 35,
@@ -43,7 +54,7 @@ export const PartnerMarquee: React.FC = () => {
           {DUPLICATED_PARTNERS.map((partner, idx) => (
             <div
               key={idx}
-              className="flex-shrink-0 flex items-center gap-3 px-5 py-3 bg-white/80 dark:bg-slate-950/40 backdrop-blur-md border border-slate-200/50 dark:border-white/5 rounded-2xl shadow-sm"
+              className="flex-shrink-0 flex items-center gap-3 px-5 py-3 bg-white/80 dark:bg-slate-950/40 backdrop-blur-md border border-slate-200/50 dark:border-white/5 rounded-2xl shadow-sm group relative"
             >
               <div className="w-8 h-8 rounded-full overflow-hidden border border-slate-200 dark:border-slate-800 flex-shrink-0">
                 <img
@@ -59,6 +70,12 @@ export const PartnerMarquee: React.FC = () => {
               <span className="text-[10px] font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider">
                 {partner.name}
               </span>
+              <button 
+                onClick={handlePartnerClick}
+                className="ml-2 p-1.5 bg-purple-600 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 text-[8px] font-black uppercase tracking-tighter"
+              >
+                View Profile <ExternalLink size={8} />
+              </button>
             </div>
           ))}
         </motion.div>

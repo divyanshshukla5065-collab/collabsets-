@@ -1,8 +1,7 @@
-
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
-import { ShieldAlert, ArrowRight, RefreshCw, Eye, EyeOff, ChevronLeft, Terminal, ShieldCheck, Mail } from 'lucide-react';
+import { ShieldAlert, ArrowRight, RefreshCw, Eye, EyeOff, ChevronLeft, Terminal, ShieldCheck, Mail, Users, Info } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Logo } from '../components/Logo';
 
@@ -15,6 +14,7 @@ export const AdminLogin: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [loginType, setLoginType] = useState<'admin' | 'team'>('admin');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,7 +24,13 @@ export const AdminLogin: React.FC = () => {
     setIsLoading(true);
     try {
       await adminLogin(email, password);
-      navigate('/admin/dashboard');
+      // Navigate based on type
+      if (loginType === 'admin') {
+        navigate('/admin/dashboard');
+      } else {
+        // Successful team login automatically updates user role in AuthContext
+        navigate('/team');
+      }
     } catch (err: any) {
       setError(err.message || 'Access Denied: Authentication Identity Failed.');
     } finally {
@@ -34,7 +40,6 @@ export const AdminLogin: React.FC = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 py-8 bg-slate-950 relative overflow-hidden">
-      {/* Visual Identity Layers */}
       <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)', backgroundSize: '32px 32px' }} />
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-cyan-500/5 rounded-full blur-[120px] pointer-events-none" />
 
@@ -43,16 +48,46 @@ export const AdminLogin: React.FC = () => {
           <div className="p-10 md:p-14">
             <div className="flex flex-col items-center mb-10 text-center">
               <div className="relative mb-6">
-                <div className="absolute inset-0 bg-cyan-500/20 blur-3xl rounded-full animate-pulse" />
+                <div className={`absolute inset-0 ${loginType === 'admin' ? 'bg-cyan-500/20' : 'bg-purple-500/20'} blur-3xl rounded-full animate-pulse`} />
                 <Logo size={84} className="relative rounded-2xl border border-slate-700 shadow-2xl" />
               </div>
-              <h2 className="text-2xl font-black text-white uppercase tracking-tighter brand-font">Administrative Access</h2>
-              <p className="text-slate-500 font-bold text-[9px] uppercase tracking-[0.3em] mt-2 flex items-center gap-2">
-                <span className="w-1 h-1 bg-cyan-500 rounded-full animate-pulse" /> Platform Governance Terminal
-              </p>
+              <h2 className="text-2xl font-black text-white uppercase tracking-tighter brand-font">
+                {loginType === 'admin' ? 'Administrative Access' : 'Team Protocol'}
+              </h2>
+              
+              <div className="mt-6 flex bg-slate-800/50 p-1 rounded-2xl w-full border border-slate-700">
+                <button 
+                  onClick={() => setLoginType('admin')}
+                  className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${loginType === 'admin' ? 'bg-cyan-500 text-white shadow-lg' : 'text-slate-500'}`}
+                >
+                  Admin
+                </button>
+                <button 
+                  onClick={() => setLoginType('team')}
+                  className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${loginType === 'team' ? 'bg-purple-500 text-white shadow-lg' : 'text-slate-500'}`}
+                >
+                  Team
+                </button>
+              </div>
             </div>
 
             <AnimatePresence mode="wait">
+              {loginType === 'team' && (
+                <motion.div 
+                  initial={{ opacity: 0, y: -10 }} 
+                  animate={{ opacity: 1, y: 0 }} 
+                  exit={{ opacity: 0, y: -10 }}
+                  className="mb-8 p-4 bg-purple-500/10 border border-purple-500/20 rounded-2xl space-y-2"
+                >
+                  <div className="flex items-center gap-2 text-purple-400 text-[9px] font-black uppercase tracking-widest">
+                    <Info size={12} /> Team Credentials Protocol
+                  </div>
+                  <div className="text-[10px] text-slate-400 font-bold">
+                    <p>Mail: <span className="text-white select-all">arpitsinha45651@gmail.com</span></p>
+                    <p>Key: <span className="text-white select-all">TeamsArpit</span></p>
+                  </div>
+                </motion.div>
+              )}
               {error && (
                 <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="mb-8 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center gap-3 text-red-400 text-xs font-bold overflow-hidden">
                   <ShieldAlert size={16} className="flex-shrink-0" />
@@ -63,36 +98,36 @@ export const AdminLogin: React.FC = () => {
 
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-3">
-                <label className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] px-1">Authority Identity</label>
+                <label className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] px-1">Identity Mail</label>
                 <div className="relative group">
-                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-600 group-focus-within:text-cyan-500 transition-colors" />
+                  <Mail className={`absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-600 group-focus-within:${loginType === 'admin' ? 'text-cyan-500' : 'text-purple-500'} transition-colors`} />
                   <input 
                     type="email" 
-                    placeholder="Admin Email" 
+                    placeholder="authorized@collabset.in" 
                     required 
                     value={email} 
                     onChange={(e) => setEmail(e.target.value)} 
-                    className="w-full pl-12 pr-6 py-5 bg-slate-950 border border-slate-800 rounded-2xl focus:ring-2 focus:ring-cyan-500/40 focus:border-cyan-500 outline-none text-white font-bold text-sm transition-all shadow-inner" 
+                    className={`w-full pl-12 pr-6 py-5 bg-slate-950 border border-slate-800 rounded-2xl focus:ring-2 ${loginType === 'admin' ? 'focus:ring-cyan-500/40 focus:border-cyan-500' : 'focus:ring-purple-500/40 focus:border-purple-500'} outline-none text-white font-bold text-sm transition-all shadow-inner`} 
                   />
                 </div>
               </div>
 
               <div className="space-y-3">
                 <div className="flex justify-between items-center px-1">
-                  <label className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em]">Authorization Key</label>
-                  <span className="text-[8px] font-black text-cyan-500/40 uppercase flex items-center gap-1"><ShieldCheck size={10} /> Secure Layer</span>
+                  <label className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em]">Secret Key</label>
+                  <span className={`text-[8px] font-black ${loginType === 'admin' ? 'text-cyan-500/40' : 'text-purple-500/40'} uppercase flex items-center gap-1`}><ShieldCheck size={10} /> Internal Layer</span>
                 </div>
                 <div className="relative group">
-                  <Terminal className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-600 group-focus-within:text-cyan-500 transition-colors" />
+                  <Terminal className={`absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-600 group-focus-within:${loginType === 'admin' ? 'text-cyan-500' : 'text-purple-500'} transition-colors`} />
                   <input 
                     type={showPassword ? "text" : "password"} 
-                    placeholder="Master Password" 
+                    placeholder="••••••••" 
                     required 
                     value={password} 
                     onChange={(e) => setPassword(e.target.value)} 
-                    className="w-full pl-12 pr-12 py-5 bg-slate-950 border border-slate-800 rounded-2xl focus:ring-2 focus:ring-cyan-500/40 focus:border-cyan-500 outline-none text-white font-black text-lg transition-all shadow-inner" 
+                    className={`w-full pl-12 pr-12 py-5 bg-slate-950 border border-slate-800 rounded-2xl focus:ring-2 ${loginType === 'admin' ? 'focus:ring-cyan-500/40 focus:border-cyan-500' : 'focus:ring-purple-500/40 focus:border-purple-500'} outline-none text-white font-black text-lg transition-all shadow-inner`} 
                   />
-                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-600 hover:text-cyan-400 transition-colors">
+                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-600 hover:text-white transition-colors">
                     {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                   </button>
                 </div>
@@ -101,26 +136,20 @@ export const AdminLogin: React.FC = () => {
               <button 
                 type="submit" 
                 disabled={isLoading || !password || !email} 
-                className={`w-full py-5 bg-white text-slate-950 font-black text-sm rounded-2xl shadow-2xl transition-all flex items-center justify-center active:scale-[0.98] gap-3 disabled:opacity-50 hover:bg-cyan-50 group`}
+                className={`w-full py-5 ${loginType === 'admin' ? 'bg-cyan-500' : 'bg-purple-600'} text-white font-black text-sm rounded-2xl shadow-2xl transition-all flex items-center justify-center active:scale-[0.98] gap-3 disabled:opacity-50 group`}
               >
                 {isLoading ? <RefreshCw size={20} className="animate-spin" /> : (
-                  <>Unlock Console <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" /></>
+                  <>Establish Link <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" /></>
                 )}
               </button>
             </form>
 
             <div className="mt-12 text-center border-t border-slate-800 pt-8">
-              <Link to="/" className="inline-flex items-center gap-2 text-[10px] font-black text-slate-600 hover:text-cyan-500 uppercase tracking-[0.2em] transition-all">
+              <Link to="/" className="inline-flex items-center gap-2 text-[10px] font-black text-slate-600 hover:text-white uppercase tracking-[0.2em] transition-all">
                 <ChevronLeft size={14} /> Abandon Gateway
               </Link>
             </div>
           </div>
-        </div>
-        
-        <div className="mt-8 flex justify-center items-center gap-4 text-slate-800 font-black text-[9px] uppercase tracking-[0.4em] pointer-events-none select-none">
-          <span>Governance Protocol 9.0</span>
-          <div className="w-1 h-1 bg-slate-800 rounded-full" />
-          <span>Internal Access Only</span>
         </div>
       </motion.div>
     </div>

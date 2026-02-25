@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
@@ -78,6 +77,13 @@ export const ProfileCompletion: React.FC = () => {
     const timer = setTimeout(() => setIsInitialLoading(false), 1200);
     return () => clearTimeout(timer);
   }, []);
+
+  // Smart redirect: If the user has already completed onboarding, push to dashboard
+  useEffect(() => {
+    if (user?.onboardingStatus === 'COMPLETED') {
+      navigate('/dashboard');
+    }
+  }, [user?.onboardingStatus, navigate]);
 
   const onCropComplete = useCallback((_croppedArea: any, croppedAreaPixels: any) => {
     setCroppedAreaPixels(croppedAreaPixels);

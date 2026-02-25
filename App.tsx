@@ -22,6 +22,8 @@ import { Settings } from './pages/Settings';
 import { Notifications } from './pages/Notifications';
 import { Blog } from './pages/Blog';
 import { BlogPost } from './pages/BlogPost';
+import { CreateCampaign } from './pages/CreateCampaign';
+import { ManageCampaigns } from './pages/ManageCampaigns';
 import { NotFound } from './pages/NotFound';
 import { AnimatePresence, motion } from 'framer-motion';
 
@@ -43,7 +45,6 @@ const ProtectedRoute: React.FC<{ children: React.ReactElement }> = ({ children }
   return children;
 };
 
-// New component to handle smart home redirection
 const SmartHome: React.FC = () => {
   const { user } = useAuth();
   if (user && user.onboardingStatus === 'COMPLETED') {
@@ -63,7 +64,7 @@ const AppContent: React.FC = () => {
   }, []);
 
   const isAdminPath = location.pathname.startsWith('/admin');
-  const is404 = !['/', '/signup', '/terms', '/team', '/blog', '/dashboard', '/profile', '/settings', '/notifications', '/complete-profile', '/chat', '/admin', '/admin/dashboard'].some(path => location.pathname === path || location.pathname.startsWith('/blog/') || location.pathname.startsWith('/marketplace/') || location.pathname.startsWith('/deals/'));
+  const is404 = !['/', '/signup', '/terms', '/team', '/blog', '/dashboard', '/profile', '/settings', '/notifications', '/complete-profile', '/chat', '/admin', '/admin/dashboard', '/brand/create-campaign', '/brand/manage-campaigns'].some(path => location.pathname === path || location.pathname.startsWith('/blog/') || location.pathname.startsWith('/marketplace/') || location.pathname.startsWith('/deals/'));
 
   return (
     <>
@@ -96,6 +97,9 @@ const AppContent: React.FC = () => {
                 <Route path="/complete-profile" element={<ProtectedRoute><PageWrapper><ProfileCompletion /></PageWrapper></ProtectedRoute>} />
                 <Route path="/chat" element={<ProtectedRoute><PageWrapper><Chat /></PageWrapper></ProtectedRoute>} />
                 
+                <Route path="/brand/create-campaign" element={<ProtectedRoute><PageWrapper><CreateCampaign /></PageWrapper></ProtectedRoute>} />
+                <Route path="/brand/manage-campaigns" element={<ProtectedRoute><PageWrapper><ManageCampaigns /></PageWrapper></ProtectedRoute>} />
+
                 <Route path="/admin" element={<PageWrapper><AdminLogin /></PageWrapper>} />
                 <Route path="/admin/dashboard" element={<ProtectedRoute><PageWrapper><AdminDashboard /></PageWrapper></ProtectedRoute>} />
                 <Route path="*" element={<NotFound />} />
